@@ -23,8 +23,8 @@
 <div id="nameModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal"><h3 id="modalTitle">Reserve this gift</h3><p class="small">Your name is optional and is visible only to the couple.</p><label for="guestName">Name (optional)</label><input id="guestName" maxlength="100" placeholder="Your name"><div class="admin-row"><button class="button" id="confirmReserve">Continue</button><button class="button outline" id="cancelReserve">Cancel</button></div><p id="modalMessage" class="status-msg" role="status"></p></div></div>
 <script>
 // Replace these two placeholders with your Supabase Project URL and publishable/anon key.
-const SUPABASE_URL = 'PASTE_YOUR_SUPABASE_PROJECT_URL_HERE';
-const SUPABASE_PUBLIC_KEY = 'PASTE_YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY_HERE';
+const SUPABASE_URL = 'https://dkfcpivhvhnhxjxihyiq.supabase.co';
+const SUPABASE_PUBLIC_KEY = 'sb_publishable_QAKsnOgUwZuuie9C898cFA_SwwJJ6aX';
 const CONFIGURED = !SUPABASE_URL.includes('PASTE_') && !SUPABASE_PUBLIC_KEY.includes('PASTE_');
 const db = CONFIGURED && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLIC_KEY) : null;
 const $ = s => document.querySelector(s); let gifts=[], category='all', adminUser=null, pendingGift=null;
