@@ -19,6 +19,28 @@
 <section class="section" id="registry"><div class="center"><div class="eyebrow" style="color:var(--gold)">A little help for our next chapter</div><h2>Our Registry</h2><p class="intro">We’re building a home for all the everyday moments and planning plenty of outdoor adventures, too. Browse gifts below. Availability is shared across devices.</p></div><div class="notice">When you reserve a gift, keep this browser on your device so you can later mark it purchased. You can also mark an available gift as purchased directly. Retailer purchases are not automatically verified.</div><div class="registry-tools"><div class="filters" id="filters"><button class="active" data-category="all">All gifts</button><button data-category="Kitchen">Kitchen</button><button data-category="Bedding & Bath">Bedding & Bath</button><button data-category="Home Essentials">Home Essentials</button><button data-category="Tools & Storage">Tools & Storage</button><button data-category="Outdoor Adventures">Outdoor Adventures</button></div><input id="search" class="search" placeholder="Search gifts…" aria-label="Search gifts"></div><div id="registryMessage" class="status-msg" role="status"></div><div id="giftGrid" class="gift-grid"><div class="empty">Loading registry…</div></div>
 <div class="admin" id="admin"><div class="eyebrow" style="color:var(--gold)">Private area</div><h3>Couple Sign In</h3><p class="small">Only Luke and Jaymond’s authorized accounts can manage gifts or view guest names.</p><div id="loginPanel"><div class="admin-row"><input type="email" id="adminEmail" placeholder="Email address" autocomplete="username"><input type="password" id="adminPassword" placeholder="Password" autocomplete="current-password"></div><button class="button" id="loginButton">Sign in</button><p id="loginMessage" class="status-msg" role="status"></p></div><div id="recoveryPanel" class="hidden"><h3>Set a new password</h3><p class="small">Choose a new password for your couple admin account.</p><form id="recoveryForm"><div class="admin-row"><input type="password" id="newPassword" placeholder="New password (at least 8 characters)" minlength="8" autocomplete="new-password" required></div><div class="admin-row"><input type="password" id="confirmNewPassword" placeholder="Confirm new password" minlength="8" autocomplete="new-password" required></div><button class="button" type="submit" id="savePasswordButton">Save new password</button><p id="recoveryMessage" class="status-msg" role="status"></p></form></div><div id="adminPanel" class="hidden"><p id="signedInAs" class="small"></p><button class="button outline" id="logoutButton">Sign out</button><h3 style="margin-top:25px">Add a gift</h3><form id="giftForm"><div class="admin-row"><input required name="name" placeholder="Gift name"><select required name="category"><option value="Kitchen">Kitchen</option><option value="Bedding & Bath">Bedding & Bath</option><option value="Home Essentials">Home Essentials</option><option value="Tools & Storage">Tools & Storage</option><option value="Outdoor Adventures">Outdoor Adventures</option></select></div><div class="admin-row"><input name="retailer_name" placeholder="Retailer (optional)"><input name="retailer_url" type="url" placeholder="Product link (https://…)" ></div><div class="admin-row"><input name="image_url" type="url" placeholder="Image URL (optional)"></div><textarea name="description" placeholder="Short description (optional)"></textarea><div class="admin-row"><button class="button" type="submit">Add gift</button></div><p id="giftFormMessage" class="status-msg" role="status"></p></form><h3>Manage gifts & private claims</h3><div id="adminGiftList"></div><h3>Guest claims (private)</h3><div id="claimsList"></div></div></div>
 </section>
+  
+<div class="admin-row">
+  <input
+    type="password"
+    id="changePassword"
+    placeholder="New password (8+ characters)"
+    minlength="8"
+    autocomplete="new-password"
+  >
+  <input
+    type="password"
+    id="confirmChangePassword"
+    placeholder="Confirm new password"
+    minlength="8"
+    autocomplete="new-password"
+  >
+  <button class="button" id="changePasswordButton" type="button">
+    Change Password
+  </button>
+</div>
+<p id="changePasswordMessage" class="status-msg" role="status"></p>
+
 <footer class="footer"><div class="brand" style="color:#f8f5ed">Luke & Jaymond</div><p>April 19, 2027 · Bella Donna Chapel · McKinney, Texas</p><p class="small">Made with love for the next adventure.</p></footer>
 <div id="nameModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal"><h3 id="modalTitle">Reserve this gift</h3><p class="small">Your name is optional and is visible only to the couple.</p><label for="guestName">Name (optional)</label><input id="guestName" maxlength="100" placeholder="Your name"><div class="admin-row"><button class="button" id="confirmReserve">Continue</button><button class="button outline" id="cancelReserve">Cancel</button></div><p id="modalMessage" class="status-msg" role="status"></p></div></div>
 <script>
@@ -42,6 +64,50 @@ $('#filters').addEventListener('click',e=>{const b=e.target.closest('button[data
 $('#loginButton').onclick=async()=>{if(!db)return;$('#loginMessage').textContent='Signing in…';const {data,error}=await db.auth.signInWithPassword({email:$('#adminEmail').value,password:$('#adminPassword').value});if(error){$('#loginMessage').textContent=error.message;return}adminUser=data.user;await checkAdmin()};
 async function checkAdmin(){if(!db)return;const {data:{user}}=await db.auth.getUser();adminUser=user;$('#recoveryPanel').classList.toggle('hidden',!recoveryMode);$('#loginPanel').classList.toggle('hidden',!!user||recoveryMode);$('#adminPanel').classList.toggle('hidden',!user||recoveryMode);if(!user||recoveryMode)return;const {data,error}=await db.from('registry_admins').select('user_id').eq('user_id',user.id).maybeSingle();if(error||!data){await db.auth.signOut();adminUser=null;$('#loginPanel').classList.remove('hidden');$('#adminPanel').classList.add('hidden');$('#loginMessage').textContent='This account is not authorized to manage the registry.';return}$('#signedInAs').textContent='Signed in as '+user.email;await loadGifts();await loadClaims()}
 $('#logoutButton').onclick=async()=>{await db.auth.signOut();adminUser=null;$('#adminPanel').classList.add('hidden');$('#loginPanel').classList.remove('hidden');say('Signed out.');};
+$('#changePasswordButton').onclick = async () => {
+  const password = $('#changePassword').value;
+  const confirmation = $('#confirmChangePassword').value;
+  const message = $('#changePasswordMessage');
+  const button = $('#changePasswordButton');
+
+  if (password.length < 8) {
+    message.textContent = 'Use at least 8 characters.';
+    return;
+  }
+
+  if (password !== confirmation) {
+    message.textContent = 'The passwords do not match.';
+    return;
+  }
+
+  button.disabled = true;
+  message.textContent = 'Updating password…';
+
+  try {
+    const { data: { user }, error: sessionError } =
+      await db.auth.getUser();
+
+    if (sessionError || !user) {
+      throw new Error('Your session has expired. Please sign in again.');
+    }
+
+    const { error } = await db.auth.updateUser({
+      password: password
+    });
+
+    if (error) throw error;
+
+    $('#changePassword').value = '';
+    $('#confirmChangePassword').value = '';
+    message.textContent = 'Password updated successfully.';
+  } catch (error) {
+    message.textContent = error.message ||
+      'Unable to update password. Please try again.';
+  } finally {
+    button.disabled = false;
+  }
+};
+
 $('#giftForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);const item=Object.fromEntries(f.entries());Object.keys(item).forEach(k=>{if(!item[k])item[k]=null});item.status='available';const {error}=await db.from('gifts').insert(item);$('#giftFormMessage').textContent=error?error.message:'Gift added.';if(!error){e.target.reset();await loadGifts()}};
 async function renderAdmin(){if(!adminUser)return;$('#adminGiftList').innerHTML=gifts.map(g=>`<div class="admin-list"><div><strong>${escapeHtml(g.name)}</strong><div class="small">${escapeHtml(g.category)} · ${statusText(g.status)}</div></div><div class="admin-row"><select aria-label="Status for ${escapeHtml(g.name)}" onchange="adminStatus('${g.id}',this.value)"><option value="available" ${g.status==='available'?'selected':''}>Available</option><option value="reserved" ${g.status==='reserved'?'selected':''}>Reserved</option><option value="purchased" ${g.status==='purchased'?'selected':''}>Purchased</option></select><button class="button outline" onclick="deleteGift('${g.id}')">Delete</button></div></div>`).join('')||'<p class="small">No gifts added yet.</p>'}
 window.adminStatus=async(id,status)=>{const {error}=await db.from('gifts').update({status}).eq('id',id);if(error)alert(error.message);await loadGifts()};window.deleteGift=async id=>{if(!confirm('Delete this gift and its claim?'))return;const {error}=await db.from('gifts').delete().eq('id',id);if(error)alert(error.message);await loadGifts();await loadClaims()};
